@@ -38,6 +38,7 @@ public class GGFeature implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onGameEnd(GameEndEvent event) {
+        if (!BedWars.config.getBoolean(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_ENABLED)) return;
         event.getWinners().forEach(uuid -> {
             Player player = Bukkit.getPlayer(uuid);
             winners.add(player.getUniqueId());
@@ -58,45 +59,46 @@ public class GGFeature implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void autoGG(GameEndEvent event) {
-        IArena arena = event.getArena();
-
-        /*
-         * Send message to players who have not died
-         */
-        arena.getPlayers().forEach(player -> event.getWinners().forEach(w -> {
-            Player winner = Bukkit.getPlayer(w);
-            if (winner != null && winner.hasPermission(Permissions.PERMISSION_AUTO_GG)) {
-                ITeam team = arena.getTeam(winner);
-                Component message = ChatFormatting.parseLegacyMini(BedWars.config.getString(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_TEXT)
-                        .replaceAll("§", "&")
-                        .replace("%bw_player%", winner.getName())
-                        .replace("%bw_level%", BedWars.getAPI().getLevelsUtil().getLevel(winner))
-                        .replace("%bw_team_color%", team.getColor().chat() + "[" + team.getDisplayName(Language.getPlayerLanguage(winner)).toUpperCase() + "]"));
-                BedWars.plugin.adventure().player(player).sendMessage(message);
-                BedWars.plugin.adventure().player(winner).sendMessage(message);
-                winners.remove(player.getUniqueId());
-                winners.remove(winner.getUniqueId());
-            }
-        }));
-        /*
-         * Send the message to players who are spectators
-         */
-        arena.getSpectators().forEach(player -> event.getWinners().forEach(w -> {
-            Player winner = Bukkit.getPlayer(w);
-            if (winner != null && winner.hasPermission(Permissions.PERMISSION_AUTO_GG)) {
-                ITeam team = arena.getTeam(winner);
-                Component message = ChatFormatting.parseLegacyMini(BedWars.config.getString(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_TEXT)
-                        .replaceAll("§", "&")
-                        .replace("%bw_player%", winner.getName())
-                        .replace("%bw_level%", BedWars.getAPI().getLevelsUtil().getLevel(winner))
-                        .replace("%bw_team_color%", team.getColor().chat() + "[" + team.getDisplayName(Language.getPlayerLanguage(winner)).toUpperCase() + "]"));
-                BedWars.plugin.adventure().player(player).sendMessage(message);
-                BedWars.plugin.adventure().player(winner).sendMessage(message);
-                winners.remove(player.getUniqueId());
-                winners.remove(winner.getUniqueId());
-            }
-        }));
-    }
+//    @EventHandler(priority = EventPriority.HIGHEST)
+//    public void autoGG(GameEndEvent event) {
+//        if (!BedWars.config.getBoolean(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_ENABLED)) return;
+//        IArena arena = event.getArena();
+//
+//        /*
+//         * Send message to players who have not died
+//         */
+//        arena.getPlayers().forEach(player -> event.getWinners().forEach(w -> {
+//            Player winner = Bukkit.getPlayer(w);
+//            if (winner != null && winner.hasPermission(Permissions.PERMISSION_AUTO_GG)) {
+//                ITeam team = arena.getTeam(winner);
+//                Component message = ChatFormatting.parseLegacyMini(BedWars.config.getString(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_TEXT)
+//                        .replaceAll("§", "&")
+//                        .replace("%bw_player%", winner.getName())
+//                        .replace("%bw_level%", BedWars.getAPI().getLevelsUtil().getLevel(winner))
+//                        .replace("%bw_team_color%", team.getColor().chat() + "[" + team.getDisplayName(Language.getPlayerLanguage(winner)).toUpperCase() + "]"));
+//                BedWars.plugin.adventure().player(player).sendMessage(message);
+//                BedWars.plugin.adventure().player(winner).sendMessage(message);
+//                winners.remove(player.getUniqueId());
+//                winners.remove(winner.getUniqueId());
+//            }
+//        }));
+//        /*
+//         * Send the message to players who are spectators
+//         */
+//        arena.getSpectators().forEach(player -> event.getWinners().forEach(w -> {
+//            Player winner = Bukkit.getPlayer(w);
+//            if (winner != null && winner.hasPermission(Permissions.PERMISSION_AUTO_GG)) {
+//                ITeam team = arena.getTeam(winner);
+//                Component message = ChatFormatting.parseLegacyMini(BedWars.config.getString(ConfigPath.GENERAL_CONFIGURATION_AUTO_GG_TEXT)
+//                        .replaceAll("§", "&")
+//                        .replace("%bw_player%", winner.getName())
+//                        .replace("%bw_level%", BedWars.getAPI().getLevelsUtil().getLevel(winner))
+//                        .replace("%bw_team_color%", team.getColor().chat() + "[" + team.getDisplayName(Language.getPlayerLanguage(winner)).toUpperCase() + "]"));
+//                BedWars.plugin.adventure().player(player).sendMessage(message);
+//                BedWars.plugin.adventure().player(winner).sendMessage(message);
+//                winners.remove(player.getUniqueId());
+//                winners.remove(winner.getUniqueId());
+//            }
+//        }));
+//    }
 }
