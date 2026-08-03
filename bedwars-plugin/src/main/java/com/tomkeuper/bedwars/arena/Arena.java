@@ -26,6 +26,7 @@ import com.tomkeuper.bedwars.api.arena.GameState;
 import com.tomkeuper.bedwars.api.arena.IArena;
 import com.tomkeuper.bedwars.api.arena.NextEvent;
 import com.tomkeuper.bedwars.api.arena.generator.GeneratorType;
+import com.tomkeuper.bedwars.api.arena.generator.IGenHolo;
 import com.tomkeuper.bedwars.api.arena.generator.IGenerator;
 import com.tomkeuper.bedwars.api.arena.shop.ShopHolo;
 import com.tomkeuper.bedwars.api.arena.team.ITeam;
@@ -205,6 +206,7 @@ public class Arena implements IArena {
     private int yKillHeight;
     private Instant startTime;
     private ITeamAssigner teamAssigner = new TeamAssigner();
+    private String mapName;
 
     /**
      * Load an arena.
@@ -231,14 +233,20 @@ public class Arena implements IArena {
             }
         }
         this.arenaName = name;
+        cm = new ArenaConfig(BedWars.plugin, name, plugin.getDataFolder().getPath() + "/Arenas");
+
+        yml = cm.getYml();
+        this.mapName = yml.getString(ConfigPath.ARENA_USE_MAP);
+        if (this.mapName == null || this.mapName.isEmpty()) {
+            this.mapName = arenaName;
+        }
+
         if (autoscale) {
             this.worldName = BedWars.arenaManager.generateGameID();
         } else {
             this.worldName = arenaName;
         }
-        cm = new ArenaConfig(BedWars.plugin, name, plugin.getDataFolder().getPath() + "/Arenas");
 
-        yml = cm.getYml();
         if (yml.get("Team") == null) {
             if (p != null) p.sendMessage("You didn't set any team for arena: " + name);
             plugin.getLogger().severe("You didn't set any team for arena: " + name);
@@ -264,9 +272,9 @@ public class Arena implements IArena {
         }
 
 
-        if (!BedWars.getAPI().getRestoreAdapter().isWorld(name)) {
-            if (p != null) p.sendMessage(ChatColor.RED + "There isn't any map called " + name);
-            plugin.getLogger().log(Level.WARNING, "There isn't any map called " + name);
+        if (!BedWars.getAPI().getRestoreAdapter().isWorld(this.mapName)) {
+            if (p != null) p.sendMessage(ChatColor.RED + "There isn't any map called " + this.mapName);
+            plugin.getLogger().log(Level.WARNING, "There isn't any map called " + this.mapName);
             return;
         }
 
@@ -367,9 +375,9 @@ public class Arena implements IArena {
             bwt.spawnGenerators();
         }
 
-        //Load diamond/ emerald generators
+        //Load diamond / emerald / iron / gold generators
         Location location;
-        for (String type : Arrays.asList("Diamond", "Emerald")) {
+        for (String type : Arrays.asList("Diamond", "Emerald", "Iron", "Gold")) {
             if (yml.get("generator." + type) != null) {
                 for (String s : yml.getStringList("generator." + type)) {
                     location = cm.convertStringToArenaLocation(s);
@@ -828,11 +836,9 @@ public class Arena implements IArena {
      *                       player is the owner.
      */
     public void removePlayer(@NotNull Player p, boolean disconnect, boolean skipPartyCheck) {
-        if (leaving.contains(p)) {
-            return;
-        } else {
-            leaving.add(p);
-        }
+        if (leaving.contains(p)) return;
+        else leaving.add(p);
+
         debug("Player removed: " + p.getName() + " arena: " + getArenaName());
         respawnSessions.remove(p);
 
@@ -992,6 +998,12 @@ public class Arena implements IArena {
         String iso = Language.getPlayerLanguage(p).getIso();
         List<ShopHolo> holos = shopHolosIso.getOrDefault(iso, Collections.emptyList());
         for (ShopHolo holo : holos) holo.clearForPlayer(p);
+
+        for (IGenerator o : getOreGenerators()) {
+            HashMap<String, IGenHolo> genHolos = o.getLanguageHolograms();
+            IGenHolo holo = genHolos.get(iso);
+            if (holo != null) holo.removePlayer(p);
+        }
 
         /**
          * Below is *only* executed if serverType != BUNGEE
@@ -1259,11 +1271,34 @@ public class Arena implements IArena {
             sc.getCachedItems().add(ci);
         }
 
+        String iso = Language.getPlayerLanguage(p).getIso();
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            List<ShopHolo> holos = shopHolosIso.getOrDefault(iso, Collections.emptyList());
+            for (ShopHolo holo : holos) {
+                if (holo == null) {
+                    debug("ShopHolo is null for iso " + iso);
+                    continue;
+                }
+                holo.getHologram().addPlayer(p);
+                holo.getHologram().getLines().forEach(l -> l.reveal(p));
+                holo.update(p);
+            }
+
+            for (IGenerator o : getOreGenerators()) {
+                HashMap<String, IGenHolo> genHolos = o.getLanguageHolograms();
+                IGenHolo holo = genHolos.get(iso);
+                if (holo != null) {
+                    holo.addPlayer(p);
+                    holo.getHologram().getLines().forEach(l -> l.reveal(p));
+                    holo.update(p);
+                } else debug("No gen holo for iso " + iso);
+            }
+        }, 10L);
+
         reJoin.getBedWarsTeam().reJoin(p, ev.getRespawnTime());
         reJoin.destroy(false);
-        Bukkit.getScheduler().runTaskLater(BedWars.plugin, () -> {
-            BoardManager.getInstance().giveTabFeatures(p, this, true);
-        }, 10L);//todo check if can be pulled out to listeners.
+        Bukkit.getScheduler().runTaskLater(BedWars.plugin, () -> BoardManager.getInstance().giveTabFeatures(p, this, true), 10L);//todo check if can be pulled out to listeners.
         return true;
     }
 
@@ -1461,6 +1496,11 @@ public class Arena implements IArena {
     @Override
     public String getArenaName() {
         return arenaName;
+    }
+
+    @Override
+    public String getMapName() {
+        return mapName;
     }
 
     @Override
