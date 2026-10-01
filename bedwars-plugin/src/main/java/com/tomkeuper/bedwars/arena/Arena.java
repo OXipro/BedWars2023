@@ -459,6 +459,14 @@ public class Arena implements IArena {
         registerScoreboards();
     }
 
+    private void wipeMatchEnderChest(Player player) {
+        player.getEnderChest().clear();
+        try {
+            player.saveData();
+        } catch (Throwable ignored) {
+        }
+    }
+
     /**
      * Add a player to the arena
      *
@@ -666,7 +674,7 @@ public class Arena implements IArena {
         }, 17L);
 
         if (getServerType() == ServerType.BUNGEE) {
-            p.getEnderChest().clear();
+            wipeMatchEnderChest(p);
         }
 
         if (getPlayers().size() >= getMaxPlayers()) {
@@ -988,6 +996,10 @@ public class Arena implements IArena {
             this.sendToMainLobby(p);
 
         } else if (getServerType() == ServerType.BUNGEE) {
+            ReJoin reJoinData = ReJoin.getPlayer(p);
+            if (reJoinData == null || reJoinData.getArena() != this) {
+                wipeMatchEnderChest(p);
+            }
             Misc.moveToLobbyOrKick(p, this, true);
             return;
         } else {
@@ -1164,6 +1176,9 @@ public class Arena implements IArena {
             pg.restore();
         }
         if (getServerType() == ServerType.BUNGEE) {
+            if (pg == null) {
+                wipeMatchEnderChest(p);
+            }
             Misc.moveToLobbyOrKick(p, this, true);
             return;
         }
