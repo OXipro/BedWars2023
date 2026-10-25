@@ -459,12 +459,16 @@ public class Arena implements IArena {
         registerScoreboards();
     }
 
-    private void wipeMatchEnderChest(Player player) {
-        player.getEnderChest().clear();
+    private void persistPlayerData(Player player) {
         try {
             player.saveData();
         } catch (Throwable ignored) {
         }
+    }
+
+    private void wipeMatchEnderChest(Player player) {
+        player.getEnderChest().clear();
+        persistPlayerData(player);
     }
 
     /**
@@ -568,6 +572,10 @@ public class Arena implements IArena {
 
             p.closeInventory();
             players.add(p);
+            if (getServerType() != ServerType.BUNGEE) {
+                PlayerGoods.createIfNeeded(p, true);
+                playerLocation.put(p, p.getLocation());
+            }
             p.setFlying(false);
             p.setAllowFlight(false);
             p.setHealth(p.getMaxHealth());
@@ -627,11 +635,6 @@ public class Arena implements IArena {
                 }
             }
 
-            /* save player inventory etc */
-            if (getServerType() != ServerType.BUNGEE) {
-                PlayerGoods.createIfNeeded(p, true);
-                playerLocation.put(p, p.getLocation());
-            }
             PaperSupport.teleportC(p, getWaitingLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
 
             sendPreGameCommandItems(p);
@@ -675,6 +678,8 @@ public class Arena implements IArena {
 
         if (getServerType() == ServerType.BUNGEE) {
             wipeMatchEnderChest(p);
+        } else if (PlayerGoods.hasGoods(p)) {
+            p.getEnderChest().clear();
         }
 
         if (getPlayers().size() >= getMaxPlayers()) {
@@ -991,15 +996,19 @@ public class Arena implements IArena {
 
         }
 
+        PlayerGoods pg = PlayerGoods.getPlayerGoods(p);
+        if (pg != null) {
+            pg.restore();
+            persistPlayerData(p);
+        } else {
+            wipeMatchEnderChest(p);
+        }
+
         if (getServerType() == ServerType.SHARED) {
             BoardManager.getInstance().remove(p);
             this.sendToMainLobby(p);
 
         } else if (getServerType() == ServerType.BUNGEE) {
-            ReJoin reJoinData = ReJoin.getPlayer(p);
-            if (reJoinData == null || reJoinData.getArena() != this) {
-                wipeMatchEnderChest(p);
-            }
             Misc.moveToLobbyOrKick(p, this, true);
             return;
         } else {
@@ -1021,16 +1030,10 @@ public class Arena implements IArena {
          * Below is *only* executed if serverType != BUNGEE
          */
 
-        /* restore player inventory */
-        PlayerGoods pg = PlayerGoods.getPlayerGoods(p);
         if (pg == null) {
-            // if there is no previous backup of the inventory send lobby items if multi arena
             if (BedWars.getServerType() == ServerType.MULTIARENA) {
-                // Send items
                 Arena.sendLobbyCommandItems(p);
             }
-        } else {
-            pg.restore();
         }
         playerLocation.remove(p);
         for (PotionEffect pf : p.getActivePotionEffects()) {
@@ -1147,6 +1150,14 @@ public class Arena implements IArena {
         Arena.afkCheck.remove(p.getUniqueId());
         BedWars.getAPI().getAFKUtil().setPlayerAFK(p, false);
 
+        PlayerGoods pg = PlayerGoods.getPlayerGoods(p);
+        if (pg != null) {
+            pg.restore();
+            persistPlayerData(p);
+        } else {
+            wipeMatchEnderChest(p);
+        }
+
         if (getServerType() == ServerType.SHARED) {
             BoardManager.getInstance().remove(p);
             this.sendToMainLobby(p);
@@ -1164,23 +1175,12 @@ public class Arena implements IArena {
             p.removePotionEffect(pf.getType());
         }
 
-        /* restore player inventory */
-        PlayerGoods pg = PlayerGoods.getPlayerGoods(p);
-        if (pg == null) {
-            // if there is no previous backup of the inventory send lobby items if multi arena
-            if (BedWars.getServerType() == ServerType.MULTIARENA) {
-                // Send items
-                Arena.sendLobbyCommandItems(p);
-            }
-        } else {
-            pg.restore();
-        }
         if (getServerType() == ServerType.BUNGEE) {
-            if (pg == null) {
-                wipeMatchEnderChest(p);
-            }
             Misc.moveToLobbyOrKick(p, this, true);
             return;
+        }
+        if (pg == null && BedWars.getServerType() == ServerType.MULTIARENA) {
+            Arena.sendLobbyCommandItems(p);
         }
         playerLocation.remove(p);
 
@@ -1277,6 +1277,7 @@ public class Arena implements IArena {
         }
         PaperSupport.teleportC(p, getSpectatorLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
         p.getInventory().clear();
+        reJoin.applyEnderChest(p);
 
         //restore items before re-spawning in team
         ShopCache sc = ShopCache.getInstance().getShopCache(p.getUniqueId());

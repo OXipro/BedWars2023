@@ -34,6 +34,7 @@ import com.google.gson.JsonObject;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,6 +52,7 @@ public class ReJoin {
     private ITeam bwt;
     private ReJoinTask task = null;
     private final ArrayList<ShopCache.CachedItem> permanentsAndNonDowngradables = new ArrayList<>();
+    private ItemStack[] enderChest = new ItemStack[0];
 
     private static final List<ReJoin> reJoinList = new ArrayList<>();
 
@@ -67,6 +69,7 @@ public class ReJoin {
         this.bwt = bwt;
         this.player = player.getUniqueId();
         this.arena = arena;
+        this.enderChest = snapshotEnderChest(player);
         reJoinList.add(this);
         BedWars.debug("Created ReJoin for " + player.getName() + " " + player.getUniqueId() + " at " + arena.getArenaName());
         if (bwt.getMembers().isEmpty()) task = new ReJoinTask(arena, bwt);
@@ -215,6 +218,23 @@ public class ReJoin {
     @SuppressWarnings("WeakerAccess")
     public List<ShopCache.CachedItem> getPermanentsAndNonDowngradables() {
         return permanentsAndNonDowngradables;
+    }
+
+    public void applyEnderChest(Player target) {
+        target.getEnderChest().clear();
+        if (enderChest.length == 0) return;
+        target.getEnderChest().setContents(enderChest);
+    }
+
+    private static ItemStack[] snapshotEnderChest(Player target) {
+        ItemStack[] contents = target.getEnderChest().getContents();
+        ItemStack[] copy = new ItemStack[contents.length];
+        for (int i = 0; i < contents.length; i++) {
+            if (contents[i] != null) {
+                copy[i] = contents[i].clone();
+            }
+        }
+        return copy;
     }
 
     public static List<ReJoin> getReJoinList() {
